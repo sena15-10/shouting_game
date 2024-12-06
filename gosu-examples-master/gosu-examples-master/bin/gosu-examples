@@ -1,0 +1,95 @@
+#!/usr/bin/env ruby
+
+require "gosu"
+
+Dir.chdir "#{File.dirname __FILE__}/../examples"
+
+require_relative "../lib/gosu-examples/example"
+require_relative "../lib/gosu-examples/sidebar"
+
+Example.load_examples "*.rb"
+
+class ExampleBox < Gosu::Window
+  def initialize
+    welcome_class = Example.initial_example
+    welcome = welcome_class.new
+
+    super welcome.width + Sidebar::WIDTH, welcome.height, fullscreen: ARGV.include?("--fullscreen")
+    
+    @sidebar = Sidebar.new do |example_class|
+      self.current_example = example_class.new unless @current_example.is_a? example_class
+    end
+    self.current_example = welcome
+  end
+  
+  def update
+    self.caption = "Gosu Example Box - #{@current_example.caption} (#{Gosu.fps} FPS)"
+    
+    @current_example.update
+  end
+  
+  def draw
+    @current_example.draw
+    
+    Gosu.flush
+    
+    Gosu.translate(@current_example.width, 0) do
+      current_filename = @current_example.class.source_file
+      @sidebar.draw(current_filename)
+    end
+  end
+  
+  def button_down(id)
+    case id
+    when Gosu::KB_ESCAPE
+      close
+    when Gosu.char_to_button_id("E")
+      if filename = @current_example.class.source_file
+        open_file_or_folder filename
+      end
+    when Gosu.char_to_button_id("O")
+      if filename = @current_example.class.source_file
+        open_file_or_folder File.dirname(filename)
+      end
+    else
+      if id == Gosu::MS_LEFT and mouse_x >= @current_example.width
+        @sidebar.click(mouse_x - @current_example.width, mouse_y)
+      else
+        @current_example.button_down(id)
+      end
+    end
+    
+    # Call super to enable alt+enter/cmd+F for toggling fullscreen mode.
+    super
+  end
+  
+  def button_up(id)
+    @current_example.button_up(id)
+  end
+  
+  def needs_cursor?
+    true
+  end
+  
+  private
+  
+  def current_example=(example)
+    self.text_input = nil
+    @current_example = example
+    @current_example.parent_window = self
+    self.width  = @current_example.width + Sidebar::WIDTH
+    self.height = @current_example.height
+  end
+  
+  def open_file_or_folder(filename)
+    if RUBY_PLATFORM =~ /darwin[0-9]*$/
+      `open '#{filename}'`
+    elsif RUBY_PLATFORM =~ /mingw[0-9]*$/
+      `explorer "#{filename.gsub('/', '\\')}"`
+    else
+      fork { exec "xdg-open '#{filename}'" }
+    end
+  end
+end
+
+ExampleBox.new.show
