@@ -1,159 +1,139 @@
 require 'gosu'
 
-# 定数の定義
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
-
-class Bullet
-  attr_reader :x, :y, :speed, :angle, :radius
-
-  def initialize(x, y, angle = 180, speed = 25) # デフォルトの角度は左方向（180度）
-    @x = x
-    @y = y
-    @angle = angle
-    @speed = speed
-    @image = Gosu::Image.new("bullet.png") rescue nil # 画像がない場合はnil
-    @power = 45
-    @radius = 5
-    @color = Gosu::Color::YELLOW
-  end
-
-  def update
-    # 角度に基づいて位置を更新
-    @x += Gosu.offset_x(@angle, @speed)
-    @y += Gosu.offset_y(@angle, @speed)
-  end
-
-  def draw
-    if @image
-      @image.draw(@x, @y, 1)
-    else
-      # 画像がない場合は簡単な円で代用
-      draw_circle(@x, @y, @radius, @color)
-    end
-  end
-
-  def out_of_bounds?
-    @x < 0 || @x > WINDOW_WIDTH || @y < 0 || @y > WINDOW_HEIGHT
-  end
-
-  private
-
-  # 円を描画するヘルパーメソッド
-  def draw_circle(x, y, radius, color, segments = 16)
-    angle_step = 360.0 / segments
-    points = []
-
-    (0..segments).each do |i|
-      angle = angle_step * i
-      radian = Gosu.degrees_to_radians(angle)
-      points << [x + radius * Math.cos(radian), y + radius * Math.sin(radian)]
-    end
-
-    points.each_cons(2) do |p1, p2|
-      Gosu.draw_line(p1[0], p1[1], color, p2[0], p2[1], color, z = 0)
-    end
-  end
-end
-
-class Reflection_Bullet < Bullet
-  def initialize(x, y, angle = 180, speed = rand(30..40))
-    super(x, y, angle, speed)
-    @color = Gosu::Color::CYAN
-  end
-
-  def update
-    super
-    # 反射処理: X軸の壁に当たった場合に反射
-    if @x <= @radius || @x >= WINDOW_WIDTH - @radius
-      @angle = 180 - @angle
-      # 角度を0-360度に正規化
-      @angle %= 360
-      # 速度を再設定（30～40のランダム）
-      @speed = rand(30..40)
-    end
-    # Y軸の壁には反射させず、画面外に出るまで移動し続ける
-  end
-
-  def draw
-    if @image
-      @image.draw(@x, @y, 1)
-    else
-      # 画像がない場合は反射弾特有の色で描画
-      draw_circle(@x, @y, @radius, @color)
-    end
-  end
-end
-
-class Enemy
-  attr_reader :x, :y
-
-  def initialize(x, y)
-    @x = x
-    @y = y
-    @fire_interval = 60 # 弾を発射する間隔（フレーム数）
-    @timer = 0
-    @bullets = []
-  end
-
-  def update
-    @timer += 1
-    if @timer % @fire_interval == 0
-      fire_bullet
-      fire_reflection_bullet
-    end
-
-    # 弾の更新
-    @bullets.each(&:update)
-    # 画面外の弾を削除
-    @bullets.reject! { |bullet| bullet.out_of_bounds? }
-  end
-
-  def draw
-    # 敵を四角形で描画
-    Gosu.draw_rect(@x - 20, @y - 20, 40, 40, Gosu::Color::RED)
-    # 弾の描画
-    @bullets.each(&:draw)
-  end
-
-  private
-
-  def fire_bullet
-    # 初期の弾を左斜めに発射（ランダムな角度を設定）
-    angle = rand(150..210) # 左斜めの角度範囲
-    speed = rand(25..30)
-    @bullets << Bullet.new(@x, @y + 20, angle, speed)
-  end
-
-  def fire_reflection_bullet
-    # Reflection_Bulletをランダムな角度で発射
-    angle = rand(150..210) # 左斜めの角度範囲
-    @bullets << Reflection_Bullet.new(@x, @y + 20, angle)
-  end
-end
-
 class GameWindow < Gosu::Window
-  def initialize
-    super(WINDOW_WIDTH, WINDOW_HEIGHT)
-    self.caption = "Reflection Bullet Example"
+  TILE_SIZE = 32
+  SCREEN_WIDTH = 640
+  SCREEN_HEIGHT = 480
 
-    @bullets = []
-    @reflection_bullets = []
-    @enemy = Enemy.new(WINDOW_WIDTH / 2, WINDOW_HEIGHT - 50)
+  def initialize
+    super SCREEN_WIDTH, SCREEN_HEIGHT
+    self.caption = "Bomb Test Game"
+
+    # プレイヤーと爆弾、障害物の管理
+    @player_x = TILE_SIZE * 5
+    @player_y = TILE_SIZE * 5
+    @bombs = []
+    @obstacles = [[TILE_SIZE * 7, TILE_SIZE * 5], [TILE_SIZE * 5, TILE_SIZE * 7]]
+    
+    # 画像読み込み
+    @player_image = Gosu::Image.new("img/starfighter.png")
+    @bomb_image = Gosu::Image.new("img/bullet.png")
+    @explosion_image = Gosu::Image.new("img/laser.png")
   end
 
   def update
-    @enemy.update
+    # プレイヤーの移動
+    if Gosu.button_down?(Gosu::KB_UP)
+      @player_y -= TILE_SIZE unless obstacle?(@player_x, @player_y - TILE_SIZE)
+    elsif Gosu.button_down?(Gosu::KB_DOWN)
+      @player_y += TILE_SIZE unless obstacle?(@player_x, @player_y + TILE_SIZE)
+    elsif Gosu.button_down?(Gosu::KB_LEFT)
+      @player_x -= TILE_SIZE unless obstacle?(@player_x - TILE_SIZE, @player_y)
+    elsif Gosu.button_down?(Gosu::KB_RIGHT)
+      @player_x += TILE_SIZE unless obstacle?(@player_x + TILE_SIZE, @player_y)
+    end
 
-    # 弾の更新と管理はEnemyクラス内で行っているため、ここでは不要
-    # @bullets.each(&:update)
-    # @bullets.reject! { |bullet| bullet.out_of_bounds? }
+    # スペースキーで爆弾を設置
+    if Gosu.button_down?(Gosu::KB_SPACE)
+      place_bomb
+    end
+
+    # 爆弾の更新
+    @bombs.each(&:update)
+    @bombs.reject!(&:finished?) # 爆発が終わった爆弾を削除
   end
 
   def draw
-    @enemy.draw
+    # プレイヤーを描画
+    @player_image.draw(@player_x, @player_y, 1)
+
+    # 障害物を描画
+    @obstacles.each do |obstacle|
+      Gosu.draw_rect(obstacle[0], obstacle[1], TILE_SIZE, TILE_SIZE, Gosu::Color::GRAY, 1)
+    end
+
+    # 爆弾と爆発を描画
+    @bombs.each(&:draw)
+  end
+
+  private
+
+  def place_bomb
+    # プレイヤー位置に爆弾を設置（重複を防ぐ）
+    unless @bombs.any? { |bomb| bomb.x == @player_x && bomb.y == @player_y }
+      @bombs << Bomb.new(@player_x, @player_y, 3, @bomb_image, @explosion_image, @obstacles)
+    end
+  end
+
+  def obstacle?(x, y)
+    @obstacles.include?([x, y])
+  end
+end
+
+class Bomb
+  attr_reader :x, :y
+  TILE_SIZE = 32
+  def initialize(x, y, explosion_range, bomb_image, explosion_image, obstacles)
+    @x = x
+    @y = y
+    @explosion_range = explosion_range
+    @bomb_image = bomb_image
+    @explosion_image = explosion_image
+    @obstacles = obstacles
+    @timer = 60 # 爆発までの時間（60フレーム = 1秒）
+    @exploding = false
+    @explosion_timer = 30 # 爆発エフェクトを描画する時間（30フレーム）
+  end
+
+  def update
+    if @timer > 0
+      @timer -= 1
+    elsif !@exploding
+      @exploding = true # 爆発開始
+    elsif @explosion_timer > 0
+      @explosion_timer -= 1
+    end
+  end
+
+  def draw
+    if @exploding && @explosion_timer > 0
+      draw_explosion
+    elsif !@exploding
+      @bomb_image.draw(@x, @y, 1)
+    end
+  end
+
+  def finished?
+    @exploding && @explosion_timer <= 0
+  end
+
+  private
+
+  def draw_explosion
+    # 爆心地を描画
+    @explosion_image.draw(@x, @y, 1)
+
+    # 十字方向に描画
+    (1..@explosion_range).each do |i|
+      # 上方向
+      draw_explosion_tile(@x, @y - i * TILE_SIZE)
+      # 下方向
+      draw_explosion_tile(@x, @y + i * TILE_SIZE)
+      # 左方向
+      draw_explosion_tile(@x - i * TILE_SIZE, @y)
+      # 右方向
+      draw_explosion_tile(@x + i * TILE_SIZE, @y)
+    end
+  end
+
+  def draw_explosion_tile(x, y)
+    # 障害物がない場合にのみ描画
+    unless @obstacles.include?([x, y])
+      @explosion_image.draw(x, y, 1)
+    end
   end
 end
 
 # ゲームの実行
-GameWindow.new.show
+window = GameWindow.new
+window.show

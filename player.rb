@@ -69,7 +69,6 @@ class Player
     @attacks.reject!(&:out_of_bounds?)
     @laser.update
     recover_gauge
-    simulate_damage
     laser_remove
   end
   
@@ -180,9 +179,7 @@ class Player
     end
   end
 
-  def simulate_damage
-    if Gosu.button_down?(Gosu::KB_H)
-      @hp -= 10 if @hp > 0
-    end
+  def damage(damage)
+    @hp -= damage
   end
 end

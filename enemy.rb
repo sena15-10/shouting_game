@@ -1,24 +1,30 @@
 require_relative 'enemy_bullet'
+DEBUG_FONT = Gosu::Font.new(40)
+MAX_HP = 4000 
 class ChipChapa
-
-    MAX_HP = 4000
-    attr_accessor :x, :y
+    attr_accessor :x, :y, :attack_bullets
   
     def initialize
       # アニメーションフレームを読み込む
       @animation = Gosu::Image::load_tiles("img/chipchap.png", 500, 281)
       @x = Gosu.screen_width - 500
-      @y = rand(0..Gosu.screen_height - 281)
+      @y = rand(0..Gosu.screen_height)
       @color = Gosu::Color::WHITE
       @animation_speed = 100  
       @start_time = Gosu.milliseconds
-      @attack_bullet = ChipChapa_Bullet.new(self)
+      @attack_bullets = []
+      @fire_interval = 100
+      @cnt = 0
     end
   
     def update
       @x -= 5
-      #攻撃パターン追加
-       @attack_bullet.update
+      @cnt += 1
+      if @cnt % @fire_interval == 0
+        @attack_bullets << ChipChapa_Bullet.new(self)
+      end
+      @attack_bullets.each(&:update)
+      @attack_bullets.reject!(&:out_of_bounds?)
     end
   
     def draw
@@ -27,7 +33,7 @@ class ChipChapa
       frame = (current_time / @animation_speed) % @animation.size
       img = @animation[frame]
       img.draw(@x, @y, 2, 1, 1, @color, :add)
-      @attack_bullet.draw
+      @attack_bullets.each(&:draw)
     end
   
     def off_screen?
@@ -36,19 +42,28 @@ class ChipChapa
 end
 
 class Huh
-    attr_accessor :x, :y
+    attr_accessor :x, :y, :attack_bullets
     def initialize
         @animation = Gosu::Image::load_tiles("img/nekomeme/huh.png", 600, 346)        
-        @x = 320  
+        @x = Gosu.screen_width  - 100
         @y = 640
         @color = Gosu::Color::WHITE
         @animation_speed = 100
         @start_time = Gosu.milliseconds
+        @fire_interval = 50
+        @attack_bullets = []
+        @cnt = 0
     end
 
     def update
-        @x += 1
-        @y += 0.5
+        @y = 640 + 500 * Math.sin(Gosu.milliseconds / 1000.0)
+        @cnt += 1
+        if @fire_interval < @cnt
+            @attack_bullets << Hidden_bullet.new(@x,@y,5)
+            @cnt = 0
+        end
+        @attack_bullets.each(&:update)
+        @attack_bullets.reject!(&:out_of_bounds?)
     end
 
     def draw
@@ -60,11 +75,12 @@ class Huh
         # 画像を描画
         img.draw(@x - img.width / 2.0, @y - img.height / 2.0,
                  2, 1, 1, @color, :add)
+        @attack_bullets.each(&:draw)
     end
 end
 
 class Yagi
-    attr_accessor :x, :y
+    attr_accessor :x, :y, :attack_bullets
     def initialize
         @animation = Gosu::Image::load_tiles("img/nekomeme/yagi.png", 600, 344)        
         # 初期位置を設定（ウィンドウサイズに応じて調整）
@@ -76,11 +92,18 @@ class Yagi
         @animation_speed = 80  # フレーム切り替え間隔
         # アニメーションの開始時間
         @start_time = Gosu.milliseconds
+        @bomb = Bomb.new(@x,@y)
+        @bomb_array = [@bomb]
+        @bomb_num = rand(8..10)
+        @huh = Huh.new
     end
 
     def update
-        @x += 1
-        @y += 0.5
+        @bomb_array.each(&:update)
+        @bomb_array.reject! { |bomb| !bomb.bomb_remain? }
+        if @bomb_array.size < @bomb_num
+            @bomb_array << Bomb.new(@x,@y)
+        end
     end
 
     def draw
@@ -88,30 +111,39 @@ class Yagi
         current_time = Gosu.milliseconds - @start_time
         frame = (current_time / @animation_speed) % @animation.size
         img = @animation[frame]
-
+        @huh.draw
         # 画像を描画
         img.draw(@x - img.width / 2.0, @y - img.height / 2.0,
                  2, 1, 1, @color, :add)
+        @bomb_array.each(&:draw)
+        
     end
+
 end
 
 class Paku 
-    attr_accessor :x, :y
+    attr_accessor :x, :y, :attack_bullets
     def initialize
         @animation = Gosu::Image::load_tiles("img/nekomeme/paku.png", 550, 540)        
-        # 初期位置を設定（ウィンドウサイズに応じて調整）
-        @x = Gosu.screen_width - 550 
+        @x = Gosu.screen_width 
         @y = 580
-        # 色を設定（必要に応じて）
+        @bullet = Reflection_Bullet.new(@x,@y-100)
         @color = Gosu::Color::WHITE
-        # アニメーションのフレーム速度（ミリ秒単位）
-        @animation_speed = 80  # フレーム切り替え間隔
-        # アニメーションの開始時間
+        @animation_speed = 80 
         @start_time = Gosu.milliseconds
+        @attack_timer = 20
+        @cnt = 0
+        @attack_bullets = []
     end
 
     def update # 攻撃Refection_bulletで攻撃する
-
+        @cnt += 1
+        if @attack_timer < @cnt
+            @attack_bullets << Reflection_Bullet.new(@x,@y-100)
+            @cnt = 0
+        end
+        @attack_bullets.each(&:update)
+        @attack_bullets.reject!(&:out_of_bounds?) # 画面外の弾丸を削除
     end
 
     def draw
@@ -123,5 +155,6 @@ class Paku
         # 画像を描画
         img.draw(@x - img.width / 2.0, @y - img.height / 2.0,
                  2, 1, 1, @color, :add)
+        @attack_bullets.each(&:draw)
     end
 end
