@@ -11,6 +11,8 @@ class Player
     @player = Gosu::Image.new('img/starfighter.png')
     @x = 0.0
     @y = Gosu.screen_height / 2.0
+    @width = @player.width - 5
+    @height = @player.height - 5
     @attacks = []
     @charging = false
     @charge_start_time = nil
@@ -24,8 +26,8 @@ class Player
     @s_key_button = Gosu::Image.new('img/Skey_button.png')
     @a_key_button = Gosu::Image.new('img/Akey_button.png')
     @laser = Laser.new(self)
-    @hp = 1500
-    @max_hp = 1500
+    @hp = 2000
+    @max_hp = 2000
     @gauge = 2000
     @max_gauge = 2000
     @charge_time = 0

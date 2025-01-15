@@ -7,40 +7,33 @@ class GameWindow < Gosu::Window
     super Gosu.screen_width, Gosu.screen_height, true
     self.caption = "My Gosu Game"
     @player = Player.new  
+    $game_window = self
     @phases = [:chipchapa, :huh, :yagi, :paku]  # フェーズ名を格納する配列
-    @phase = :chipchapa
+    @phase = :yagi
     @spawn_enemies = []
     @phase_timer = Gosu.milliseconds
     @phase_duration = 50000  # フェーズの持続時間を60秒に設定
     @enemy_spawn_timer = Gosu.milliseconds  # タイマーの初期化
-    @bullet_power = 0
-    @cnt = 0
-
-    @hit = false
     change_enemy  # 初期フェーズの敵を生成
+    @hit = 0
+    @enemy_hit = 0
+    @enemy_distance = 0
   end
-
   def update
     @player.update
     update_phase
     current_update 
     hit_judgment
     @spawn_enemies.each(&:update)
+
   end
 
   def draw
     @spawn_enemies.each(&:draw)
     @player.draw 
-    DEBUG_FONT.draw("Bullet_power: #{@bullet_power}", 0, 0, 10)
-    DEBUG_FONT.draw("HP: #{@player.hp}", 0, 40, 10)
-    if @hit
-      DEBUG_FONT.draw("Hit!", 100, 40,10)
-      @cnt += 1 if @cnt < 100
-      @hit = false if @cnt == 100
-    end
-    
-      
-    
+    DEBUG_FONT.draw("Bullet HIT!!#{@hit}", 500, 0, 1, 1, 1, Gosu::Color::WHITE)
+    DEBUG_FONT.draw("ENEMY HIT!!#{@enemy_hit}", 800, 0, 1, 1, 1, Gosu::Color::RED) 
+    DEBUG_FONT.draw("ENEMY_DISTANCE#{@enemy_distance}",800,100,1,1,1,Gosu::Color::RED)
   end
 
   def button_down(id) #ボタンを押したときの処理
@@ -78,11 +71,11 @@ class GameWindow < Gosu::Window
     if @phase == :chipchapa # ChipChapaフェーズだけ敵を再生成
       current_time = Gosu.milliseconds
       interval_time = current_time - @enemy_spawn_timer
-      if interval_time > 1000  # 50秒ごとにスポーン
+      if interval_time > 5500  # 50秒ごとにスポーン
         @enemy_spawn_timer = current_time  # タイマーをリセット
         @spawn_enemies << ChipChapa.new   
       end
-      puts "Enemy_spawn_timer:#{@enemy_spawn_timer}\n interval_time:#{interval_time}"
+     
     end
   end
 
@@ -111,27 +104,31 @@ class GameWindow < Gosu::Window
   end
 
   def hit_judgment
-    @spawn_enemies.each do |enemy|
+    @spawn_enemies.each do |enemy|   
       enemy.attack_bullets.each do |bullet|
-        @bullet_power = bullet.power
-        puts "Bullet_power: #{@bullet_power}"
-        if Gosu.distance(bullet.x, bullet.y, @player.x, @player.y) < 100
+        if Gosu.distance(bullet.x, bullet.y, @player.x, @player.y) <= 50
           @player.damage(bullet.power)
-          @hit = true
-          bullet.remove
+        end
+        @enemy_distance = Gosu.distance(enemy.x, enemy.y, @player.x, @player.y).to_i
+
+        if Gosu.distance(enemy.x, enemy.y, @player.x, @player.y) < 70
+          @player.damage(1)
+          @enemy_hit += 1
+        end
+      end
+
+      if enemy.is_a?(Yagi) #ヤギのときだけ
+        enemy.attack_bullets.each do |bomb|
+          if bomb.explosion && bomb.hit?(@player.x, @player.y, @player.width, @player.height)
+            @player.damage(bomb.bomb_effect_power)
+          end
         end
       end
     end
-
-    # @player.attacks.each do |attack|
-    #   @spawn_enemies.each do |enemy|
-    #     if Gosu.distance(attack.x, attack.y, enemy.x, enemy.y) < 50
-    #       enemy.damage(attack.power)
-    #       attack.remove
-    #     end
-    #   end
-    # end
   end
+
+
+
 end
 
 window = GameWindow.new

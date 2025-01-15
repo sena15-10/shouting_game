@@ -12,19 +12,16 @@ class ChipChapa
       @color = Gosu::Color::WHITE
       @animation_speed = 100  
       @start_time = Gosu.milliseconds
+      @attack_bullet = ChipChapa_Bullet.new(self)
       @attack_bullets = []
       @fire_interval = 100
       @cnt = 0
     end
   
     def update
+      read_attack_bullets
       @x -= 5
-      @cnt += 1
-      if @cnt % @fire_interval == 0
-        @attack_bullets << ChipChapa_Bullet.new(self)
-      end
-      @attack_bullets.each(&:update)
-      @attack_bullets.reject!(&:out_of_bounds?)
+      @attack_bullet.update
     end
   
     def draw
@@ -33,11 +30,15 @@ class ChipChapa
       frame = (current_time / @animation_speed) % @animation.size
       img = @animation[frame]
       img.draw(@x, @y, 2, 1, 1, @color, :add)
-      @attack_bullets.each(&:draw)
+      @attack_bullet.draw
     end
   
     def off_screen?
       @x < -@animation.first.width
+    end
+
+    def read_attack_bullets
+        @attack_bullets = @attack_bullet.bullets
     end
 end
 
@@ -93,17 +94,17 @@ class Yagi
         # アニメーションの開始時間
         @start_time = Gosu.milliseconds
         @bomb = Bomb.new(@x,@y)
-        @bomb_array = [@bomb]
-        @bomb_num = rand(8..10)
+        @attack_bullets = []
+        @bomb_num = rand(5..8)
         @huh = Huh.new
     end
 
     def update
-        @bomb_array.each(&:update)
-        @bomb_array.reject! { |bomb| !bomb.bomb_remain? }
-        if @bomb_array.size < @bomb_num
-            @bomb_array << Bomb.new(@x,@y)
+        if @attack_bullets.size < @bomb_num
+            @attack_bullets << Bomb.new(@x,@y)
         end
+        @attack_bullets.each(&:update)
+        @attack_bullets.reject! { |bomb| !bomb.bomb_remain? }
     end
 
     def draw
@@ -115,7 +116,7 @@ class Yagi
         # 画像を描画
         img.draw(@x - img.width / 2.0, @y - img.height / 2.0,
                  2, 1, 1, @color, :add)
-        @bomb_array.each(&:draw)
+        @attack_bullets.each(&:draw)
         
     end
 
