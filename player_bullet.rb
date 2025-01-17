@@ -9,7 +9,7 @@ class Bullet
     @x = x
     @y = y
     @image = Gosu::Image.new('img/bullet.png')
-    @power = 20
+    @power = 30
   end
 
   def draw
@@ -29,7 +29,7 @@ class ChargeBullet < Bullet
   MAX_CHARGE_TIME = 2000
   MIN_POWER = 10
   MAX_POWER = 100
-  USE_GAUGE = 5
+  USE_GAUGE = 10
 
   attr_accessor :scale, :power, :y
 
@@ -70,7 +70,7 @@ class Laser
     @max_width = Gosu.screen_width + 5000
     @image = Gosu::Image.new('img/laser.png')
     @firing = false
-    @power = 20
+    @power = 5
   end
 
   def start_firing

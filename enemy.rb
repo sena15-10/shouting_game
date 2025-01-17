@@ -1,6 +1,6 @@
 require_relative 'enemy_bullet'
 DEBUG_FONT = Gosu::Font.new(40)
-MAX_HP = 4000 
+MAX_HP = 5000 
 class ChipChapa
     attr_accessor :x, :y, :attack_bullets
   
