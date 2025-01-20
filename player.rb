@@ -3,7 +3,7 @@ require 'gosu'
 require_relative 'player_bullet'
 
 class Player
-  attr_accessor :x, :y, :width, :height, :player_bullet, :hp, :gauge
+  attr_accessor :x, :y, :width, :height, :player_bullet, :hp, :gauge, :bullets
   
   PLAYER_SPEED = 6
 
@@ -11,9 +11,9 @@ class Player
     @player = Gosu::Image.new('img/starfighter.png')
     @x = 0.0
     @y = Gosu.screen_height / 2.0
-    @width = @player.width - 5
-    @height = @player.height - 5
-    @attacks = []
+    @width = @player.width - 10
+    @height = @player.height - 10
+    @bullets = []
     @charging = false
     @charge_start_time = nil
     @charge_bullet = nil
@@ -35,7 +35,7 @@ class Player
 
   def draw
     @player.draw(@x, @y, 2)
-    @attacks.each(&:draw)
+    @bullets.each(&:draw)
     @laser.draw
     draw_bars
     # 既存のキー描画コード
@@ -66,9 +66,9 @@ class Player
 
   def update
     move
-    @attacks.each(&:update)
+    @bullets.each(&:update)
     handle_charging
-    @attacks.reject!(&:out_of_bounds?)
+    @bullets.reject!(&:out_of_bounds?)
     @laser.update
     recover_gauge
     laser_remove
@@ -90,18 +90,17 @@ class Player
     @charge_bullet = nil
   end
 
-  def release_charge
+  def release_charge #チャージし終わった処理
     if @charging
-      
       @charge_time = Gosu.milliseconds - @charge_start_time
-      @attacks << ChargeBullet.new(@x + @player.width, @y + @player.height / 2, @charge_time)
+      @bullets << ChargeBullet.new(@x + @player.width, @y + @player.height / 2, @charge_time)
       @charging = false
       @charge_bullet = nil
       @charge_time = 0
     end
   end
 
-  def handle_charging
+  def handle_charging #チャージショットのコード
     if @charging
       @charge_time = Gosu.milliseconds - @charge_start_time 
       if ChargeBullet::MAX_CHARGE_TIME > @charge_time
@@ -120,42 +119,43 @@ class Player
     end
   end
 
-  def laser_remove
+  def laser_remove #チャージ攻撃と混合しないようにする
+    if @gauge < 0
+      stop_laser #強制的にレーザーを止める
+    end
     if @player_bullet == :laser
-      if Gosu.button_down?(Gosu::KB_SPACE)
+      if Gosu.button_down?(Gosu::KB_SPACE) && @gauge > 0
         @gauge -= Laser::USE_GAUGE
       end
     end
   end
 
-  def stop_laser
-    @laser.stop_firing
+  def stop_laser #レーザーを止める処理
+      @laser.stop_firing
   end
 
-  def attack
+  def attack #攻撃する処理
     case @player_bullet 
       when :bullet
         if @gauge >= Bullet::USE_GAUGE
-          @attacks << Bullet.new(@x + @player.width, @y + @player.height / 2)
+          @bullets << Bullet.new(@x + @player.width, @y + @player.height / 2)
           @gauge -= Bullet::USE_GAUGE
         end
       when :charge_bullet
         if @gauge >= ChargeBullet::USE_GAUGE
           start_charging
-          
         end
       when :laser
+        @bullets << @laser
         if @gauge >= Laser::USE_GAUGE
           @laser.start_firing
-          @gauge -= Laser::USE_GAUGE
         end
       when :missile
         if @gauge >= Missile::USE_GAUGE
-          @attacks << Missile.new(self)
+          @bullets << Missile.new(self)
           @gauge -= Missile::USE_GAUGE
         end
     end
-      @gauge -= Laser::USE_GAUGE
   end
 
   def player_bullet_change(key)
@@ -184,4 +184,6 @@ class Player
   def damage(damage)
     @hp -= damage
   end
+
+
 end

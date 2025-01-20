@@ -7,7 +7,7 @@ class Enemy_Bullet #初期クラス
         @speed = speed
         @image = image
         @speed = speed
-        @power = 10
+        @power = 50
         @out_of_bounds = false
     end
 
@@ -31,7 +31,7 @@ class Enemy_Bullet #初期クラス
     end
 end
 
-class Reflection_Bullet #パクパク猫の攻撃
+class Reflection_Bullet < Enemy_Bullet #パクパク猫の攻撃
     attr_reader :x, :y, :speed, :velocity_x, :velocity_y, :power# speed属性を追加
 
     def initialize(x,y)
@@ -40,7 +40,7 @@ class Reflection_Bullet #パクパク猫の攻撃
         @image = Gosu::Image.new('img/purple_blt.png') 
         @angle = rand(190..350)
         @speed = rand(15..20)
-        @power = 10
+        @power = 50
         @velocity_x = Gosu.offset_x(@angle, @speed)
         @velocity_y = Gosu.offset_y(@angle, @speed)
     end
@@ -62,6 +62,10 @@ class Reflection_Bullet #パクパク猫の攻撃
     def out_of_bounds?
         @x < 0 || @x > Gosu.screen_width
     end
+
+    def remove
+        super
+    end
 end
 
 class ChipChapa_Bullet < Enemy_Bullet #ちぴちゃぱ猫の攻撃
@@ -70,8 +74,8 @@ class ChipChapa_Bullet < Enemy_Bullet #ちぴちゃぱ猫の攻撃
         @chipchapa = chipchapa
         @image = Gosu::Image.new('img/purple_blt.png')
         @angle = 90
-        @speed = 20
-        @power = 10
+        @speed = 10
+        @power = 30
         @timer = 0
         @fire_interval = 15
         @start_angle = at_pos
@@ -79,7 +83,6 @@ class ChipChapa_Bullet < Enemy_Bullet #ちぴちゃぱ猫の攻撃
         @end_angle = @start_angle + 90
         @bullets = []
         @current_angle = @start_angle
-        @debug_text = "start_angle:#{@start_angle}\n end_angle:#{@end_angle}"
     end
 
     def update
@@ -118,8 +121,7 @@ class ChipChapa_Bullet < Enemy_Bullet #ちぴちゃぱ猫の攻撃
     end
 
     def remove
-        @x = -1000
-        @y = -1000
+        super
     end
 end
 
@@ -136,14 +138,14 @@ class Bomb
         @bomb_height = 50
         @effect_width = 0
         @effect_height = 0
-        @max_width = MAX_WIDTH + 500
+        @max_width = MAX_WIDTH
         @max_height = MAX_HEIGHT
         @move_timer = rand(200..300)  # 爆弾が動く時間
         @bomb_explosion = 350 # 爆発するまでの時間
         @explosion_remain = 500
         @explosion = false
-        @power = 10 
-        @bomb_effect_power = 5 
+        @power = 50
+        @bomb_effect_power = 1 
         @move_y = rand(-5..3) # どれくらい上下に動くか
         @move_x = rand(-5..3) # どれくらい左右に動くか
     end
@@ -185,6 +187,11 @@ class Bomb
         @explosion_remain > 0
     end
 
+    def remove
+        @bomb_explosion = 0
+        
+    end
+
     def hit?(player_x, player_y, player_width, player_height)
         center_x = @x + @bomb_width / 2
         center_y = @y + @bomb_height / 2
@@ -220,15 +227,16 @@ class Bomb
         false
     end
 
-    def explode_if_hit(player_x, player_y)
-        if Gosu.distance(@x, @y, player_x, player_y) < 50
-            @bomb_explosion = 0
-        end
-    end
+    # def explode_if_hit(player_x, player_y)
+    #     if Gosu.distance(@x, @y, player_x, player_y) < 50
+    #         @bomb_explosion = 0
+    #     end
+    # end
     def add_width
         @effect_width = [@effect_width + 200, @max_width].min
         return @effect_width
     end
+    
 
     private 
     def bomb_move
@@ -257,7 +265,7 @@ class Bomb
 
 end
 
-class Hidden_bullet
+class Hidden_bullet < Enemy_Bullet
     attr_accessor :x, :y, :speed, :image, :image_width, :z_index, :hidden_timer, :hidden, :power
     def initialize(x,y,speed)
         @x = x
@@ -265,12 +273,11 @@ class Hidden_bullet
         @speed = speed * rand(1..2)
         @image = Gosu::Image.new('img/kao_moji.jpg')
         @image_width = @image.width
-        @z_index = -1
         @center_width = Gosu.screen_width / 2
         @hidden_timer = 200
-        @append_timer = 100
+        @append_timer = 50
         @hidden = false
-        @power = 20
+        @power = 100
     end
 
     def update
@@ -290,13 +297,13 @@ class Hidden_bullet
             @hidden_timer -= 1
             if @hidden_timer <= 0
                 @hidden = false
-                @hidden_timer = 300
+                @hidden_timer = 200
             end
         else
             @append_timer -= 1
             if @append_timer <= 0
                 @hidden = true
-                @append_timer = 100
+                @append_timer = 50
             end
         end
     end
@@ -312,7 +319,6 @@ class Hidden_bullet
     end
 
     def remove
-        @x = -1000
-        @y = -1000
+        super
     end
 end
